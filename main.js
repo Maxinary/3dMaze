@@ -1,334 +1,66 @@
-class Drawable{//would work well as a factory
-  constructor(shaderAttributes, drawMod, abscoords){//for now: shape coord, tex coord, indexies
-    this.shadeAttribs = shaderAttributes;
-    //console.log(this.shadeAttribs);
-    this.shadeObjs = {};
-    for(var key in shaderAttributes){
-      this.shadeObjs[key] = gl.createBuffer();
-    }
-    this.drawMod = drawMod;
-    this.coords = abscoords;
-    this.rotation = [0,0,0];
-  }
-  
-  copy(){
-    return new Drawable(JSON.parse(JSON.stringify(this.shadeAttribs)), this.drawMod, this.coords);
-  }
-  
-  stretch(arr3){
-    var o = this.copy().shadeAttribs;
-    for(var i=0;i<o.vertexPositionBuffer.length;i+=3){
-      for(var j=0;j<3;j++){
-        o.vertexPositionBuffer[i+j] = o.vertexPositionBuffer[i+j]*arr3[j];
-      }
-    }
-    return o;
-  }
-}
-
-class Tree{//Oshitwaddup it's a tree datatype too, who would have guessed
-  constructor(angle, heightPercent, initialHeight, initialAge, branches){
-    this.angle = angle;
-    this.heightPercent = heightPercent;
-    this.initialHeight = initialHeight;
-    
-    this.children = [];
-    if(initialAge>0){
-      for(var i=0;i<branches;i++){
-        this.children.push(new Tree(angle, heightPercent, initialHeight*heightPercent, initialAge-1, branches)); //new set of branches which are smaller than the last
-      }
-    }
-  }
-  
-  draw(rotationStack, currentPos){//render the whole thing
-    if(rotationStack === undefined){
-      rotationStack = [[0, 1, 0, 0]];
-      currentPos = [0,0,0];
-    }
-    var out = new Drawable({
-      "vertexPositionBuffer":[],
-      "vertexColorBuffer":[],
-      "vertexIndexBuffer":[]
-    }, gl.TRIANGLES, [0.0, 0.0, 0.0]);
-
-    //this 1
-    var stretched = cyllinder.stretch([this.heightPercent*this.initialHeight/40, this.heightPercent*this.initialHeight, this.heightPercent*this.initialHeight/40]);
-    var kbuf = stretched.vertexPositionBuffer;
-    //update positioning
-    var childRotatePositions = [];
-    for(var i=0;i<this.children.length;i++){
-      childRotatePositions.push([0, this.initialHeight*this.heightPercent*(Math.random()*0.5+0.5), 0]);
-    }
-    
-    for(var h=0; h<rotationStack.length; h++){
-      for(var i=0;i<kbuf.length;i+=3){//iterate and rotate
-        var temp = rotate(kbuf[i], kbuf[i+1], kbuf[i+2], rotationStack[h][0], rotationStack[h][1], rotationStack[h][2], this.angle+rotationStack[h][3]);
-
-        for(var j=0; j<3; j++){
-          kbuf[i+j] = temp[j];
-        }
-      }
-      for(var j=0;j<this.children.length;j++){
-        childRotatePositions[j] = rotate(childRotatePositions[j][0], childRotatePositions[j][1], childRotatePositions[j][2], rotationStack[h][0], rotationStack[h][1], rotationStack[h][2], this.angle+rotationStack[h][3]);
-      }
-    }
-
-    for(var i=0;i<3;i++){
-      for(var j=0;j<this.children.length;j++){
-        childRotatePositions[j][i] += currentPos[i];
-      }
-    }
-
-    for(var i=0; i<kbuf.length; i+=3){//iterate and rotate
-      for(var j=0;j<3;j++){
-        kbuf[i+j] += currentPos[j];
-      }
-    }
-    
-
-    out.shadeAttribs.vertexPositionBuffer = out.shadeAttribs.vertexPositionBuffer.concat(kbuf);
-      
-    out.shadeAttribs.vertexColorBuffer = out.shadeAttribs.vertexColorBuffer.concat(cyllinder.shadeAttribs.vertexColorBuffer);
-    
-    out.shadeAttribs.vertexIndexBuffer = out.shadeAttribs.vertexIndexBuffer.concat(cyllinder.shadeAttribs.vertexIndexBuffer);
-    
-    var numberOfIndecies = kbuf.length/3;
-    for(var i=0;i<this.children.length;i++){
-      var childs = this.children[i].draw(JSON.parse(JSON.stringify(rotationStack.concat([[, (1.0*i)/(this.children.length-1.0), Math.random()-0.5, Math.random()*Math.PI/8-Math.PI/16]]))), JSON.parse(JSON.stringify(childRotatePositions[i])));
-
-      //recursion, man
-      out.shadeAttribs.vertexPositionBuffer = out.shadeAttribs.vertexPositionBuffer.concat(JSON.parse(JSON.stringify(childs.shadeAttribs.vertexPositionBuffer)));
-
-      out.shadeAttribs.vertexColorBuffer = out.shadeAttribs.vertexColorBuffer.concat(JSON.parse(JSON.stringify(childs.shadeAttribs.vertexColorBuffer)));
-
-      var k = JSON.parse(JSON.stringify(childs.shadeAttribs.vertexIndexBuffer));
-
-      for(var j=0;j<k.length;j++){
-        k[j] += numberOfIndecies;        
-      }
-
-      numberOfIndecies = numberOfIndecies + childs.shadeAttribs.vertexPositionBuffer.length/3;
-
-      out.shadeAttribs.vertexIndexBuffer = out.shadeAttribs.vertexIndexBuffer.concat(k);
-    }
-    return out;
-  }
-}
-
-//from http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
-function rotate(x, y, z, u, v, w, theta){
-  var squareSum = Math.pow(u, 2.0)+Math.pow(v, 2.0)+Math.pow(w, 2.0);
-  var cos = Math.cos(theta);
-  var sin = Math.sin(theta);
-  var multiplied = u*x+v*y+w*z;
-  var sqrSquareSum = Math.sqrt(squareSum);
-
-  return [
-    (u*multiplied*(1-cos)+squareSum*x*cos+sqrSquareSum*(-w*y+v*z)*sin)/(squareSum),
-    (v*multiplied*(1-cos)+squareSum*y*cos+sqrSquareSum*(w*x-u*z)*sin)/(squareSum),
-    (w*multiplied*(1-cos)+squareSum*z*cos+sqrSquareSum*(-v*x+u*y)*sin)/(squareSum)
-    ];
-}
-
-var gl;//the canvas context
 var drawings = [];//the list of things being drawn
-var shaderProgram;
 
-//matrices
-var mvMatrix = mat4.create();
-var mvMatrixStack = [];
-var pMatrix = mat4.create();
+class Map{
+  constructor(arrOrWidth){//
+    if(typeof arrOrWidth == "number"){//it's the width of 
+      
+    }else{//it's a 2d array
+      
+    }
+  }
+}
 
 //personal movement
-var thetaX = 0;
+var thetaX = Math.PI/8;
 var thetaY = 0;
 var thetaZ = 0;
+
 var move = [1,0];
-worldShift = [0,0,0];
+var worldShift = [0, 0, 0];
+var ballSpeed = [0, 0, 0];
+var speed = 1/100;
 
-function initGL(canvas) {
-  try {
-    canvas.width=document.body.clientWidth;
-    canvas.height=document.body.clientHeight;
-    gl = canvas.getContext("experimental-webgl");
-    gl.viewportWidth = canvas.width;
-    gl.viewportHeight = canvas.height;
-  } catch (e) {}
-  if (!gl) {
-    alert("Could not initialise WebGL, sorry :-(");
-  }
-}
-
-function getShader(gl, id) {
-  var shaderScript = document.getElementById(id);
-  if (!shaderScript) {
-    return null;
-  }
-
-  var str = "";
-  var k = shaderScript.firstChild;
-  while (k) {
-    if (k.nodeType == 3) {
-      str += k.textContent;
-    }
-    k = k.nextSibling;
-  }
-
-  var shader;
-  if (shaderScript.type == "x-shader/x-fragment") {
-    shader = gl.createShader(gl.FRAGMENT_SHADER);
-  } else if (shaderScript.type == "x-shader/x-vertex") {
-    shader = gl.createShader(gl.VERTEX_SHADER);
-  } else {
-    return null;
-  }
-
-  gl.shaderSource(shader, str);
-  gl.compileShader(shader);
-
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    alert(gl.getShaderInfoLog(shader));
-    return null;
-  }
-
-  return shader;
-}
-
-function initShaders() {
-  var fragmentShader = getShader(gl, "shader-fs");
-  var vertexShader = getShader(gl, "shader-vs");
-
-  shaderProgram = gl.createProgram();
-  gl.attachShader(shaderProgram, vertexShader);
-  gl.attachShader(shaderProgram, fragmentShader);
-  gl.linkProgram(shaderProgram);
-
-  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-      alert("Could not initialise shaders");
-  }
-
-  gl.useProgram(shaderProgram);
-
-  shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-  gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
-  shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aColor");
-  gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
-
-  shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-  shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-  shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
-  shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
-}
-
-function setMatrixUniforms() {
-  gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-  gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
-  var normalMatrix = mat3.create();
-  mat4.toInverseMat3(mvMatrix, normalMatrix);
-  mat3.transpose(normalMatrix);
-  gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
-}
-
-function mvPushMatrix() {
-  var copy = mat4.create();
-  mat4.set(mvMatrix, copy);
-  mvMatrixStack.push(copy);
-}
-
-function mvPopMatrix() {
-  if (mvMatrixStack.length === 0) {
-    throw "Invalid popMatrix!";
-  }
-  mvMatrix = mvMatrixStack.pop();
-}
-
+//final objects
+var sphere;
+var cube;
 var cyllinder;
+var plane;
 
-function initBuffers() {
-  cyllinder = new Drawable({
-    "vertexPositionBuffer":[],
-    "vertexColorBuffer":[],
-    "vertexIndexBuffer":[]
-  }, gl.TRIANGLES, [0.0, 0.0, 0.0]);
-  
-  for(var i=0;i<60;i++){
-    cyllinder.shadeAttribs.vertexPositionBuffer = cyllinder.shadeAttribs.vertexPositionBuffer.concat([//first rectangle
-      Math.cos(Math.PI*2*(i/60)), 0.0, Math.sin(Math.PI*2*(i/60)),
-      Math.cos(Math.PI*2*(i/60)), 1.0, Math.sin(Math.PI*2*(i/60))
-    ]);
-    
-    cyllinder.shadeAttribs.vertexColorBuffer = cyllinder.shadeAttribs.vertexColorBuffer.concat([
-      255.0/255.0, 0.0/255.0, 0.0/255.0, 1.0,
-      255.0/255.0, 0.0/255.0, 0.0/255.0, 1.0,
-      255.0/255.0, 0.0/255.0, 0.0/255.0, 1.0,
-      255.0/255.0, 0.0/255.0, 0.0/255.0, 1.0
-    ]);
+var myDrawable = DrawableFactory([
+    "vertexPositionBuffer", 
+    "vertexColorBuffer", 
+    "vertexIndexBuffer", 
+    "faceNormalBuffer"
+  ]);
 
-    cyllinder.shadeAttribs.vertexIndexBuffer = cyllinder.shadeAttribs.vertexIndexBuffer.concat([
-      (2*i)%120, (2*i+1)%120, (2*i+2)%120,
-      (2*i+3)%120, (2*i+2)%120, (2*i+1)%120,
-      0, (2*i)%120, (2*i+2)%120,
-      1, (2*i+3)%120, (2*i+1)%120
-    ]);
-  }
-
-//  drawings.push(cyllinder.copy());
-//  drawings.push(new Drawable(cyllinder.stretch([1,20,1]), gl.TRIANGLES, [0,0,0]));
-  var meme = cyllinder.copy();
-  for(var i=0;i<meme.shadeAttribs.vertexPositionBuffer.length;i+=3){
-    var temp = rotate(meme.shadeAttribs.vertexPositionBuffer[i], meme.shadeAttribs.vertexPositionBuffer[i+1], meme.shadeAttribs.vertexPositionBuffer[i+2], 1, 1, 1, Math.PI/2);
-    for(var j=0;j<3;j++){
-      meme.shadeAttribs.vertexPositionBuffer[i+j] = temp[j];
-    }
-    meme.shadeAttribs.vertexPositionBuffer[i+1] += 5;
-  }
-//  drawings.push(meme);
-//  drawings.push(cyllinder);
-  drawings.push((new Tree(Math.PI/4, 0.7, 20, 1, 4)).draw());
-
-  for(var ii=0; ii<drawings.length; ii++){
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexPositionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.vertexPositionBuffer), gl.STATIC_DRAW);
-    drawings[ii].shadeObjs.vertexPositionBuffer.itemSize = 3;
-    drawings[ii].shadeObjs.vertexPositionBuffer.numItems = drawings[ii].shadeAttribs.vertexPositionBuffer.length/3;
-    
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexColorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.vertexColorBuffer), gl.STATIC_DRAW);
-    drawings[ii].shadeObjs.vertexColorBuffer.itemSize = 4;
-    drawings[ii].shadeObjs.vertexColorBuffer.numItems = drawings[ii].shadeAttribs.vertexColorBuffer.length/4;
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].shadeObjs.vertexIndexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawings[ii].shadeAttribs.vertexIndexBuffer), gl.STATIC_DRAW);
-    drawings[ii].shadeObjs.vertexIndexBuffer.itemSize = 1;
-    drawings[ii].shadeObjs.vertexIndexBuffer.numItems = drawings[ii].shadeAttribs.vertexIndexBuffer.length;
-  }
-  console.log(drawings);
-}
-
-function drawScene() {
+//code for actually drawing and running{
+function drawScene(){
+  //clear screen
   gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.clearColor(0, 0, 0, 0.3);
 
-  mat4.perspective(45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+  //set up view model
+  mat4.perspective(pMatrix, 45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
 
   mat4.identity(mvMatrix);
 
-  mat4.rotate(mvMatrix, thetaX, [1, 0, 0]);
-  mat4.rotate(mvMatrix, thetaY, [0, 1, 0]);
-  mat4.rotate(mvMatrix, thetaZ, [0, 0, 1]);
+  //intial camera movement
 
-  mat4.translate(mvMatrix,  worldShift);
+  mat4.translate(mvMatrix, mvMatrix, [0,0,-5]);//got sphere
 
+  mat4.lookAt(mvMatrix, worldShift, sphere.coords, vec3.fromValues(0, 1, 0))
+
+
+  //loop through drawings and draw
   for(var ii=0;ii<drawings.length;ii++){
     mvPushMatrix();
 
-    mat4.rotate(mvMatrix, drawings[ii].rotation[0], [1, 0, 0]);
-    mat4.rotate(mvMatrix, drawings[ii].rotation[1], [0, 1, 0]);
-    mat4.rotate(mvMatrix, drawings[ii].rotation[2], [0, 0, 1]);
+    mat4.rotate(mvMatrix, mvMatrix, drawings[ii].rotation[0], [1, 0, 0]);
+    mat4.rotate(mvMatrix, mvMatrix, drawings[ii].rotation[1], [0, 1, 0]);
+    mat4.rotate(mvMatrix, mvMatrix, drawings[ii].rotation[2], [0, 0, 1]);
 
-    mat4.translate(mvMatrix,  drawings[ii].coords);
+    mat4.translate(mvMatrix,  mvMatrix, drawings[ii].coords);
 
     //vertices
     gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexPositionBuffer);
@@ -337,6 +69,10 @@ function drawScene() {
     //coloring
     gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexColorBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, drawings[ii].shadeObjs.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    //normals
+    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.faceNormalBuffer);
+    gl.vertexAttribPointer(shaderProgram.faceNormalAttribute, drawings[ii].shadeObjs.faceNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     //vertex index buffer
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].shadeObjs.vertexIndexBuffer);
@@ -349,35 +85,236 @@ function drawScene() {
 }
 
 function tick(){
-  requestAnimFrame(tick);
-  move = [Math.sin(thetaY)/5, Math.cos(thetaY)/5];
+  requestAnimationFrame(tick);//register next tick
+
+  //set current rotation
+  {
+    for(var i=0; i<3; i++){
+      sphere.coords[i] += ballSpeed[i];
+      ballSpeed[i] *= 0.95;
+      
+      worldShift[i] = sphere.coords[i];
+    }
+    worldShift[0] +=  4*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
+    worldShift[1] +=  4*Math.cos(thetaX);//zRot math
+    worldShift[2] +=  4*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
+//    worldShift[0] +=  4*Math.cos(thetaY)*Math.sin(thetaX);
+  }
+  
+  //check keys and values from keyRegisterer.js
   keyTick();
+  
+  //draw
   drawScene();
 }
 
 function webGLStart() {
-  var canvas = document.getElementById("lesson01-canvas");
-  initGL(canvas);
+  //init GL
+  initGL();
+  
+  //init shaders
+  //so those vars fragmentShader and vertexShader get removed later
   initShaders();
-  initBuffers();
+  
+  
+  //init buffers
+  {
+    //init sphere
+    {
+      
+      sphere = myDrawable.new();
+      
+      sphere.shadeAttribs.vertexPositionBuffer = sphereDat.points;
+      sphere.shadeAttribs.vertexIndexBuffer = sphereDat.index;
+      
+      for(var i=0; i<sphere.shadeAttribs.vertexPositionBuffer.length; i+=3){
+        sphere.shadeAttribs.vertexColorBuffer = sphere.shadeAttribs.vertexColorBuffer.concat([1, 0, 1, 1]);
+      }
+      
+      sphere.shadeAttribs.faceNormalBuffer = sphereDat.normal;
+    }
+    //end sphere init
+  
+    /*/cyllinder init
+    {
+      cyllinder = myDrawable.new();
+      
+      var maxI = 360*4;
+      var indecies = 8;
+      //walls
+      for(var i=0;i<maxI;i++){
+        cyllinder.shadeAttribs.vertexPositionBuffer = cyllinder.shadeAttribs.vertexPositionBuffer.concat([//first rectangle
+          Math.cos(Math.PI*2*(i/maxI)), 0.0, Math.sin(Math.PI*2*(i/maxI)),
+          Math.cos(Math.PI*2*(i/maxI)), 1.0, Math.sin(Math.PI*2*(i/maxI)),
 
-  registerKeyPress(buttonMove.hold, 38, function(){thetaX-=0.02;});
-  registerKeyPress(buttonMove.hold, 40, function(){thetaX+=0.02;});
-  registerKeyPress(buttonMove.hold, 37, function(){thetaY-=0.02;});
-  registerKeyPress(buttonMove.hold, 39, function(){thetaY+=0.02;});
+          Math.cos(Math.PI*2*((i+1)/maxI)), 0.0, Math.sin(Math.PI*2*((i+1)/maxI)),
+          Math.cos(Math.PI*2*((i+1)/maxI)), 1.0, Math.sin(Math.PI*2*((i+1)/maxI)),
 
-  registerKeyPress(buttonMove.hold, 83, function(){worldShift[0]+=move[0];worldShift[2]-=move[1];});
-  registerKeyPress(buttonMove.hold, 87, function(){worldShift[0]-=move[0];worldShift[2]+=move[1];});
-  registerKeyPress(buttonMove.hold, 65, function(){worldShift[0]+=move[1];worldShift[2]+=move[0];});
-  registerKeyPress(buttonMove.hold, 68, function(){worldShift[0]-=move[1];worldShift[2]-=move[0];});
-  registerKeyPress(buttonMove.hold, 16, function(){worldShift[1]+=1/5;});//down
-  registerKeyPress(buttonMove.hold, 32, function(){worldShift[1]-=1/5;});//up
+          0, 0, 1,
+          0, 1, 1,
+          Math.cos(Math.PI*2*(i/maxI)), 0.0, Math.sin(Math.PI*2*(i/maxI)),
+          Math.cos(Math.PI*2*(i/maxI)), 1.0, Math.sin(Math.PI*2*(i/maxI))
+        ]);
+  		
+        cyllinder.shadeAttribs.vertexColorBuffer = cyllinder.shadeAttribs.vertexColorBuffer.concat([
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
 
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
-  gl.enable(gl.DEPTH_TEST);
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
 
-  gl.enable(gl.CULL_FACE);
-  gl.cullFace(gl.BACK);
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
+          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0
+        ]);
+  
+        cyllinder.shadeAttribs.vertexIndexBuffer = cyllinder.shadeAttribs.vertexIndexBuffer.concat([
+          (indecies*i)%(indecies*maxI), (indecies*i+1)%(indecies*maxI), (indecies*i+2)%(indecies*maxI),
+          (indecies*i+3)%(indecies*maxI), (indecies*i+2)%(indecies*maxI), (indecies*i+1)%(indecies*maxI),
+          (indecies*i+4)%(indecies*maxI), (indecies*i+6)%(indecies*maxI), ((indecies*(i+1)+6)%(indecies*maxI)),
+          (indecies*i+5)%(indecies*maxI), (indecies*i+7)%(indecies*maxI), ((indecies*(i+1)+7)%(indecies*maxI))
+        ]);
+      }
+      
+      //top and bottom
+      for(var i=0;i<maxI;i++){
+        cyllinder.shadeAttribs.vertexPositionBuffer = cyllinder.shadeAttribs.vertexPositionBuffer.concat([
+          
+        ]);
+      }
+      cyllinder.shadeAttribs.faceNormalBuffer = generateNormals(cyllinder);
+    }
+    *///end cyllinder init
+    
+    //cube init
+    {
+      cube = cyllinder = myDrawable.new();
+    
+      
+      cube.shadeAttribs.vertexIndexBuffer = [0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 18, 17, 19, 20, 21, 22, 22, 21, 23];
+      cube.shadeAttribs.vertexPositionBuffer = [-0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5];
+  
+      //cube.shadeAttribs.faceNormalBuffer = [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0];
+      cube.shadeAttribs.faceNormalBuffer = generateNormals(cube);
+      
+      for(var i=0; i<cube.shadeAttribs.vertexPositionBuffer.length;i++){
+        cube.shadeAttribs.vertexColorBuffer = cube.shadeAttribs.vertexColorBuffer.concat([0.0, 0.0, 1.0, 1.0]);
+      }
+    }
+    ///end cube init
+    
+    //plane init 
+    {
+      plane = myDrawable.new();
+      
+      var width = 20;
+      for(var i=0;i<width;i++){
+        for(var j=0;j<width;j++){
+          plane.shadeAttribs.vertexPositionBuffer = plane.shadeAttribs.vertexPositionBuffer.concat([
+            i, 0, j,
+            i+1, 0, j,
+            i, 0, j+1,
+            i+1, 0, j+1
+          ]);
+          
+          plane.shadeAttribs.vertexColorBuffer = plane.shadeAttribs.vertexColorBuffer.concat([
+            0.9, 0.9, 0.9, 1.0,
+            0.9, 0.9, 0.9, 1.0,
+            0.9, 0.9, 0.9, 1.0,
+            0.9, 0.9, 0.9, 1.0
+          ]);
+          
+          plane.shadeAttribs.vertexIndexBuffer = plane.shadeAttribs.vertexIndexBuffer.concat([
+            i*width+j, i*width+j+1, i*width+j+2,
+            i*width+j+1, i*width+j+3, i*width+j+2
+          ]);
 
+          plane.shadeAttribs.faceNormalBuffer = generateNormals(plane);
+        }
+      }
+    }
+    //end plane init
+    
+    //add some items to the drawables
+    {
+      drawings.push(sphere);
+      drawings.push(cube);
+    }
+    //  end adding
+      
+    // go through drawings and generate all their buffers
+    for(var ii=0; ii<drawings.length; ii++){
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexPositionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.vertexPositionBuffer), gl.STATIC_DRAW);
+      drawings[ii].shadeObjs.vertexPositionBuffer.itemSize = 3;
+      drawings[ii].shadeObjs.vertexPositionBuffer.numItems = drawings[ii].shadeAttribs.vertexPositionBuffer.length/3;
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexColorBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.vertexColorBuffer), gl.STATIC_DRAW);
+      drawings[ii].shadeObjs.vertexColorBuffer.itemSize = 4;
+      drawings[ii].shadeObjs.vertexColorBuffer.numItems = drawings[ii].shadeAttribs.vertexColorBuffer.length/4;
+  
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.faceNormalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.faceNormalBuffer), gl.STATIC_DRAW);
+      drawings[ii].shadeObjs.faceNormalBuffer.itemSize = 3;
+      drawings[ii].shadeObjs.faceNormalBuffer.numItems = drawings[ii].shadeAttribs.faceNormalBuffer.length/3;
+  
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].shadeObjs.vertexIndexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawings[ii].shadeAttribs.vertexIndexBuffer), gl.STATIC_DRAW);
+      drawings[ii].shadeObjs.vertexIndexBuffer.itemSize = 1;
+      drawings[ii].shadeObjs.vertexIndexBuffer.numItems = drawings[ii].shadeAttribs.vertexIndexBuffer.length;
+    }
+    
+    console.log(cube);
+  }
+
+
+  //register key presses with keyregisterer.js
+  {
+    //rotate
+    registerKeyPress(buttonMove.hold, 37, function(){thetaY-=0.02;});
+    registerKeyPress(buttonMove.hold, 38, function(){thetaX-=0.02;});
+    registerKeyPress(buttonMove.hold, 39, function(){thetaY+=0.02;});
+    registerKeyPress(buttonMove.hold, 40, function(){thetaX+=0.02;});
+  
+    //S
+    registerKeyPress(buttonMove.hold, 83, function(){
+      ballSpeed[0]+=speed*Math.sin(thetaY);
+      ballSpeed[2]+=speed*Math.cos(thetaY);
+    });
+
+    //W
+    registerKeyPress(buttonMove.hold, 87, function(){
+      ballSpeed[0]-=speed*Math.sin(thetaY);
+      ballSpeed[2]-=speed*Math.cos(thetaY);
+    });
+
+    //A
+    registerKeyPress(buttonMove.hold, 65, function(){
+      ballSpeed[0]-=speed*Math.cos(thetaY);
+      ballSpeed[2]+=speed*Math.sin(thetaY);
+    });
+
+    //D
+    registerKeyPress(buttonMove.hold, 68, function(){
+      ballSpeed[0]+=speed*Math.cos(thetaY);
+      ballSpeed[2]-=speed*Math.sin(thetaY);
+    });
+  }
+
+
+  //gl variables
+  {
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.enable(gl.DEPTH_TEST);
+  
+//    gl.enable(gl.CULL_FACE);
+//    gl.cullFace(gl.BACK);
+  }
+
+
+  //begin tick cycle
   tick();
 }
+//}end code for drawing to screen
