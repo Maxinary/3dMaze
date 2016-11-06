@@ -29,8 +29,13 @@ function DrawableFactory(shaderAttributeNames){
         thisO.shadeAttribs[shaderAttributeNames[i]] = [];
         thisO.shadeObjs[shaderAttributeNames[i]] = gl.createBuffer();
       }
+      
+      thisO.type = this;
+      
       thisO.copy = function(){
-        return new Drawable(JSON.parse(JSON.stringify(this.shadeAttribs)), this.drawMod, this.coords);
+        var out = this.type.new(this.drawMod, this.coords);
+        out.shadeAttribs = JSON.parse(JSON.stringify(this.shadeAttribs));
+        return out;
       };
     
       thisO.stretch = function(arr3){
@@ -40,7 +45,9 @@ function DrawableFactory(shaderAttributeNames){
             o.vertexPositionBuffer[i+j] = o.vertexPositionBuffer[i+j]*arr3[j];
           }
         }
-        return o;
+        var out = this.copy();
+        out.shadeAttribs = o;
+        return out;
       };
       
       return thisO;
@@ -97,7 +104,10 @@ function initShaders(){
     shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
     
     shaderProgram.lightDirection = gl.getUniformLocation(shaderProgram, "lightDirection");
-    gl.uniform3fv(shaderProgram.lightDirection, normalize([-1.0, 1.0, 0.0]));
+    gl.uniform3fv(shaderProgram.lightDirection, normalize([-1.0, 1.5, 2.0]));
+    
+    shaderProgram.ambi = gl.getUniformLocation(shaderProgram, "uAmbient");
+    gl.uniform1f(shaderProgram.ambi, 0.2);
 }
 
 //from http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/

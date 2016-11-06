@@ -95,10 +95,9 @@ function tick(){
       
       worldShift[i] = sphere.coords[i];
     }
-    worldShift[0] +=  4*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
-    worldShift[1] +=  4*Math.cos(thetaX);//zRot math
-    worldShift[2] +=  4*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
-//    worldShift[0] +=  4*Math.cos(thetaY)*Math.sin(thetaX);
+    worldShift[0] +=  8*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
+    worldShift[1] +=  8*Math.cos(thetaX);//zRot math
+    worldShift[2] +=  8*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
   }
   
   //check keys and values from keyRegisterer.js
@@ -135,61 +134,9 @@ function webGLStart() {
     }
     //end sphere init
   
-    /*/cyllinder init
-    {
-      cyllinder = myDrawable.new();
-      
-      var maxI = 360*4;
-      var indecies = 8;
-      //walls
-      for(var i=0;i<maxI;i++){
-        cyllinder.shadeAttribs.vertexPositionBuffer = cyllinder.shadeAttribs.vertexPositionBuffer.concat([//first rectangle
-          Math.cos(Math.PI*2*(i/maxI)), 0.0, Math.sin(Math.PI*2*(i/maxI)),
-          Math.cos(Math.PI*2*(i/maxI)), 1.0, Math.sin(Math.PI*2*(i/maxI)),
-
-          Math.cos(Math.PI*2*((i+1)/maxI)), 0.0, Math.sin(Math.PI*2*((i+1)/maxI)),
-          Math.cos(Math.PI*2*((i+1)/maxI)), 1.0, Math.sin(Math.PI*2*((i+1)/maxI)),
-
-          0, 0, 1,
-          0, 1, 1,
-          Math.cos(Math.PI*2*(i/maxI)), 0.0, Math.sin(Math.PI*2*(i/maxI)),
-          Math.cos(Math.PI*2*(i/maxI)), 1.0, Math.sin(Math.PI*2*(i/maxI))
-        ]);
-  		
-        cyllinder.shadeAttribs.vertexColorBuffer = cyllinder.shadeAttribs.vertexColorBuffer.concat([
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0,
-          255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0
-        ]);
-  
-        cyllinder.shadeAttribs.vertexIndexBuffer = cyllinder.shadeAttribs.vertexIndexBuffer.concat([
-          (indecies*i)%(indecies*maxI), (indecies*i+1)%(indecies*maxI), (indecies*i+2)%(indecies*maxI),
-          (indecies*i+3)%(indecies*maxI), (indecies*i+2)%(indecies*maxI), (indecies*i+1)%(indecies*maxI),
-          (indecies*i+4)%(indecies*maxI), (indecies*i+6)%(indecies*maxI), ((indecies*(i+1)+6)%(indecies*maxI)),
-          (indecies*i+5)%(indecies*maxI), (indecies*i+7)%(indecies*maxI), ((indecies*(i+1)+7)%(indecies*maxI))
-        ]);
-      }
-      
-      //top and bottom
-      for(var i=0;i<maxI;i++){
-        cyllinder.shadeAttribs.vertexPositionBuffer = cyllinder.shadeAttribs.vertexPositionBuffer.concat([
-          
-        ]);
-      }
-      cyllinder.shadeAttribs.faceNormalBuffer = generateNormals(cyllinder);
-    }
-    *///end cyllinder init
-    
     //cube init
     {
-      cube = cyllinder = myDrawable.new();
+      cube = myDrawable.new();
     
       
       cube.shadeAttribs.vertexIndexBuffer = [0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 18, 17, 19, 20, 21, 22, 22, 21, 23];
@@ -238,8 +185,8 @@ function webGLStart() {
     
     //add some items to the drawables
     {
-      drawings.push(sphere);
-      drawings.push(cube);
+      drawings.push(sphere.copy().stretch([1,1,1]));
+      drawings.push(cube.copy().stretch([2,2,2]));
     }
     //  end adding
       

@@ -28,16 +28,24 @@
       uniform mat4 uPMatrix;
       uniform mat3 uNMatrix;
       
+      uniform float uAmbient;
       uniform vec3 lightDirection;
       
       varying vec4 vColor;
+      
       void main(void) {
-        float total = dot(lightDirection, aNormal);
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+
+        float total = dot(lightDirection, aNormal)*(1.0-uAmbient);
+        float spec = pow(dot(aNormal, (normalize(gl_Position).xyz + lightDirection)/2.0), 5.0)*5.0;
+        if(spec < 0.0){
+          spec = 0.0;
+        }
+        
         if(total > 0.0){
-          vColor = aColor*vec4(total, total, total, 1.0);
+          vColor = aColor*vec4(total+uAmbient, total+uAmbient, total+uAmbient, 1.0) + vec4(spec, spec, spec, 1.0);
         }else{
-          vColor = vec4(0.0, 0.0, 0.0, 1.0);
+          vColor = aColor*vec4(uAmbient, uAmbient, uAmbient, 1.0);
         }
       }
     </script>
