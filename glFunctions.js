@@ -100,6 +100,7 @@ function initShaders(){
   
     shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
     shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+    shaderProgram.rotMatrix = gl.getUniformLocation(shaderProgram, "rotMat");
     shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
     shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
     
@@ -236,12 +237,14 @@ function getShader(gl, id) {
   return shader;
 }
 
-function setMatrixUniforms() {
+function setMatrixUniforms(rM) {
   gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
   gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
   var normalMatrix = mat3.create();
   mat3.normalFromMat4(normalMatrix, mvMatrix);
   gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
+  
+  gl.uniformMatrix4fv(shaderProgram.rotMatrix, false, rM);
 }
 
 function mvPushMatrix() {

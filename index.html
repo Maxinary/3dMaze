@@ -24,6 +24,7 @@
       attribute vec3 aNormal;
       attribute vec4 aColor;
       
+	  uniform mat4 rotMat;
       uniform mat4 uMVMatrix;
       uniform mat4 uPMatrix;
       uniform mat3 uNMatrix;
@@ -34,10 +35,11 @@
       varying vec4 vColor;
       
       void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		vec3 oNormal = (normalize(rotMat * vec4(aNormal, 1.0)).xyz);
+        gl_Position = uPMatrix * uMVMatrix * rotMat * vec4(aVertexPosition, 1.0);
 
-        float total = dot(lightDirection, aNormal)*(1.0-uAmbient);
-        float spec = pow(dot(aNormal, (normalize(gl_Position).xyz + lightDirection)/2.0), 5.0)*5.0;
+        float total = dot(lightDirection, oNormal)*(1.0-uAmbient);
+        float spec = pow(dot(oNormal, (normalize(gl_Position).xyz + lightDirection)/2.0), 5.0)*5.0;
         if(spec < 0.0){
           spec = 0.0;
         }
@@ -47,6 +49,7 @@
         }else{
           vColor = aColor*vec4(uAmbient, uAmbient, uAmbient, 1.0);
         }
+		//vColor = vec4(0.5 + 0.5*oNormal.xyz, 1.0);
       }
     </script>
     

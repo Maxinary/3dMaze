@@ -55,10 +55,12 @@ function drawScene(){
   //loop through drawings and draw
   for(var ii=0;ii<drawings.length;ii++){
     mvPushMatrix();
-
-    mat4.rotate(mvMatrix, mvMatrix, drawings[ii].rotation[0], [1, 0, 0]);
-    mat4.rotate(mvMatrix, mvMatrix, drawings[ii].rotation[1], [0, 1, 0]);
-    mat4.rotate(mvMatrix, mvMatrix, drawings[ii].rotation[2], [0, 0, 1]);
+	
+	var rotationMatrix = mat4.create();
+	
+    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].rotation[0], [1, 0, 0]);
+    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].rotation[1], [0, 1, 0]);
+    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].rotation[2], [0, 0, 1]);
 
     mat4.translate(mvMatrix,  mvMatrix, drawings[ii].coords);
 
@@ -77,7 +79,7 @@ function drawScene(){
     //vertex index buffer
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].shadeObjs.vertexIndexBuffer);
 
-    setMatrixUniforms();
+    setMatrixUniforms(rotationMatrix);
     gl.drawElements(drawings[ii].drawMod, drawings[ii].shadeObjs.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
     mvPopMatrix();
@@ -98,6 +100,9 @@ function tick(){
     worldShift[0] +=  8*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
     worldShift[1] +=  8*Math.cos(thetaX);//zRot math
     worldShift[2] +=  8*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
+	
+	drawings[1].rotation[2] += 0.05;
+	drawings[1].rotation[1] += 0.03;
   }
   
   //check keys and values from keyRegisterer.js
@@ -156,6 +161,7 @@ function webGLStart() {
       plane = myDrawable.new();
       
       var width = 20;
+	  var indecies = 4;
       for(var i=0;i<width;i++){
         for(var j=0;j<width;j++){
           plane.shadeAttribs.vertexPositionBuffer = plane.shadeAttribs.vertexPositionBuffer.concat([
@@ -173,8 +179,8 @@ function webGLStart() {
           ]);
           
           plane.shadeAttribs.vertexIndexBuffer = plane.shadeAttribs.vertexIndexBuffer.concat([
-            i*width+j, i*width+j+1, i*width+j+2,
-            i*width+j+1, i*width+j+3, i*width+j+2
+            indecies*(i*width+j), indecies*(i*width+j)+2, indecies*(i*width+j)+1,
+            indecies*(i*width+j)+1, indecies*(i*width+j)+2, indecies*(i*width+j)+3
           ]);
 
           plane.shadeAttribs.faceNormalBuffer = generateNormals(plane);
@@ -187,6 +193,12 @@ function webGLStart() {
     {
       drawings.push(sphere.copy().stretch([1,1,1]));
       drawings.push(cube.copy().stretch([2,2,2]));
+	  {
+		  var k = plane.copy();
+		  k = k.stretch([5, -1, 5]);
+		  k.coords = [-50, -1, -50];
+		  drawings.push(k);
+	  }
     }
     //  end adding
       
