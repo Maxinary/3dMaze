@@ -1,17 +1,36 @@
 var drawings = [];//the list of things being drawn
 
-class Map{
-  constructor(arrOrWidth){//
-    if(typeof arrOrWidth == "number"){//it's the width of 
-      
-    }else{//it's a 2d array
-      
+class PhysObj{
+  constructor(objName, drawableAttr, mass){
+    if(mass === undefined){
+      mass = 1;
     }
+    this.name = objName;
+    this.interactFns = {};//each fn should return a vector of interaction normal
+    this.draw = drawableAttr;
+    this.velocity = [0,0,0];
+    this.mass = mass;
+  }
+  
+  touch(otherPhysObj){
+    if(this.interactFns[otherPhysObj.name] !== undefined){
+      return this.interactFns[otherPhysObj.name](this, otherPhysObj);
+    }else{
+      return [0, 0, 0];
+    }
+  }
+  
+  copy(){
+    var n = new PhysObj(this.name, this.draw.copy());
+    for(var key in this.interactFns){
+      n.interactFns[key] = this.interactFns[key];
+    }
+    return n;
   }
 }
 
 //personal movement
-var thetaX = Math.PI/8;
+var thetaX = Math.PI*7/16;
 var thetaY = 0;
 var thetaZ = 0;
 
@@ -23,7 +42,6 @@ var speed = 1/100;
 //final objects
 var sphere;
 var cube;
-var cyllinder;
 var plane;
 
 var myDrawable = DrawableFactory([
@@ -32,6 +50,15 @@ var myDrawable = DrawableFactory([
     "vertexIndexBuffer", 
     "faceNormalBuffer"
   ]);
+
+myDrawable.customFunctions.setColor = function(myDrawableO, colorArr){
+  for(var i=0;i<myDrawableO.shadeAttribs.vertexColorBuffer.length;i+=4){
+    for(var j=0; j<4; j++){
+      myDrawableO.shadeAttribs.vertexColorBuffer[i+j] = colorArr[j];
+    }
+  }
+  return myDrawableO;
+};
 
 //code for actually drawing and running{
 function drawScene(){
@@ -49,38 +76,38 @@ function drawScene(){
 
   mat4.translate(mvMatrix, mvMatrix, [0,0,-5]);//got sphere
 
-  mat4.lookAt(mvMatrix, worldShift, sphere.coords, vec3.fromValues(0, 1, 0))
+  mat4.lookAt(mvMatrix, worldShift, drawings[0].draw.coords, vec3.fromValues(0, 1, 0))
 
 
   //loop through drawings and draw
   for(var ii=0;ii<drawings.length;ii++){
     mvPushMatrix();
 	
-	var rotationMatrix = mat4.create();
+	  var rotationMatrix = mat4.create();
 	
-    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].rotation[0], [1, 0, 0]);
-    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].rotation[1], [0, 1, 0]);
-    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].rotation[2], [0, 0, 1]);
+    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[0], [1, 0, 0]);
+    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[1], [0, 1, 0]);
+    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[2], [0, 0, 1]);
 
-    mat4.translate(mvMatrix,  mvMatrix, drawings[ii].coords);
+    mat4.translate(mvMatrix,  mvMatrix, drawings[ii].draw.coords);
 
     //vertices
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexPositionBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, drawings[ii].shadeObjs.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0); 
+    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexPositionBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, drawings[ii].draw.shadeObjs.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0); 
 
     //coloring
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexColorBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, drawings[ii].shadeObjs.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexColorBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, drawings[ii].draw.shadeObjs.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     //normals
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.faceNormalBuffer);
-    gl.vertexAttribPointer(shaderProgram.faceNormalAttribute, drawings[ii].shadeObjs.faceNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.faceNormalBuffer);
+    gl.vertexAttribPointer(shaderProgram.faceNormalAttribute, drawings[ii].draw.shadeObjs.faceNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     //vertex index buffer
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].shadeObjs.vertexIndexBuffer);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexIndexBuffer);
 
     setMatrixUniforms(rotationMatrix);
-    gl.drawElements(drawings[ii].drawMod, drawings[ii].shadeObjs.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(drawings[ii].draw.drawMod, drawings[ii].draw.shadeObjs.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
     mvPopMatrix();
   }
@@ -92,17 +119,36 @@ function tick(){
   //set current rotation
   {
     for(var i=0; i<3; i++){
-      sphere.coords[i] += ballSpeed[i];
-      ballSpeed[i] *= 0.95;
-      
-      worldShift[i] = sphere.coords[i];
+      worldShift[i] = drawings[0].draw.coords[i];
     }
     worldShift[0] +=  8*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
     worldShift[1] +=  8*Math.cos(thetaX);//zRot math
     worldShift[2] +=  8*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
-	
-	drawings[1].rotation[2] += 0.05;
-	drawings[1].rotation[1] += 0.03;
+  }
+  
+  //movement
+  {
+    for(var i=0;i<drawings.length;i++){
+      for(var j=0;j<3;j++){
+        drawings[i].draw.coords[j] += drawings[i].velocity[j];
+        drawings[i].velocity[j] *= 0.975;
+      }
+    }
+  }
+  
+  //collision
+  {
+    for(var i=0;i<drawings.length;i++){
+      for(var j=0;j<drawings.length;j++){
+        var hits = drawings[i].touch(drawings[j]);
+        if(hits[0] != 0 && hits[0] != 0 && hits[0] != 0){
+          hits = normalize(hits);
+          for(var k=0;k<3;k++){
+            drawings[i].velocity[k] += hits[k]/20;
+          }
+        }
+      }
+    }
   }
   
   //check keys and values from keyRegisterer.js
@@ -161,7 +207,7 @@ function webGLStart() {
       plane = myDrawable.new();
       
       var width = 20;
-	  var indecies = 4;
+  	  var indecies = 4;
       for(var i=0;i<width;i++){
         for(var j=0;j<width;j++){
           plane.shadeAttribs.vertexPositionBuffer = plane.shadeAttribs.vertexPositionBuffer.concat([
@@ -191,41 +237,64 @@ function webGLStart() {
     
     //add some items to the drawables
     {
-      drawings.push(sphere.copy().stretch([1,1,1]));
-      drawings.push(cube.copy().stretch([2,2,2]));
-	  {
-		  var k = plane.copy();
-		  k = k.stretch([5, -1, 5]);
-		  k.coords = [-50, -1, -50];
-		  drawings.push(k);
-	  }
+      {
+        var ball = new PhysObj("ball", sphere.copy());
+        ball.interactFns["ball"] = function(mine, physO){
+          if(Math.sqrt(Math.pow(mine.draw.coords[0]-physO.draw.coords[0], 2) + Math.pow(mine.draw.coords[1]-physO.draw.coords[1], 2) + Math.pow(mine.draw.coords[2]-physO.draw.coords[2], 2) ) < ball.draw.stretchRegister[0]+physO.draw.stretchRegister[0]){
+            return [mine.draw.coords[0]-physO.draw.coords[0], mine.draw.coords[1]-physO.draw.coords[1], mine.draw.coords[2]-physO.draw.coords[2]];
+          }else{
+            return [0, 0, 0];
+          }
+        };
+        ball.interactFns["cube"] = function(mine, cube){
+          var touchSides = [0,0,0];
+          for(var i=0; i<3; i++){
+            if(cube.draw.stretchRegister[0]){
+              
+            }
+          }
+        };
+        var ki = ball.copy();
+        ki.draw = myDrawable.customFunctions.setColor(sphere.copy(), [1, 0, 0, 1]);
+        ki.draw.coords[0] = 3;
+        drawings.push(ball.copy());
+        drawings.push(ki);
+      }
+      
+  	  {
+  		  var k = plane.copy();
+  		  k = k.stretch([5, -1, 5]);
+  		  k.coords = [-50, -1, -50];
+  		  drawings.push(new PhysObj("plane",k));
+  	  }
+      drawings.push(new PhysObj("cube", cube.copy().stretch([2,2,2])));
     }
     //  end adding
       
     // go through drawings and generate all their buffers
     for(var ii=0; ii<drawings.length; ii++){
-      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexPositionBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.vertexPositionBuffer), gl.STATIC_DRAW);
-      drawings[ii].shadeObjs.vertexPositionBuffer.itemSize = 3;
-      drawings[ii].shadeObjs.vertexPositionBuffer.numItems = drawings[ii].shadeAttribs.vertexPositionBuffer.length/3;
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexPositionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].draw.shadeAttribs.vertexPositionBuffer), gl.STATIC_DRAW);
+      drawings[ii].draw.shadeObjs.vertexPositionBuffer.itemSize = 3;
+      drawings[ii].draw.shadeObjs.vertexPositionBuffer.numItems = drawings[ii].draw.shadeAttribs.vertexPositionBuffer.length/3;
       
-      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.vertexColorBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.vertexColorBuffer), gl.STATIC_DRAW);
-      drawings[ii].shadeObjs.vertexColorBuffer.itemSize = 4;
-      drawings[ii].shadeObjs.vertexColorBuffer.numItems = drawings[ii].shadeAttribs.vertexColorBuffer.length/4;
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexColorBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].draw.shadeAttribs.vertexColorBuffer), gl.STATIC_DRAW);
+      drawings[ii].draw.shadeObjs.vertexColorBuffer.itemSize = 4;
+      drawings[ii].draw.shadeObjs.vertexColorBuffer.numItems = drawings[ii].draw.shadeAttribs.vertexColorBuffer.length/4;
   
-      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].shadeObjs.faceNormalBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].shadeAttribs.faceNormalBuffer), gl.STATIC_DRAW);
-      drawings[ii].shadeObjs.faceNormalBuffer.itemSize = 3;
-      drawings[ii].shadeObjs.faceNormalBuffer.numItems = drawings[ii].shadeAttribs.faceNormalBuffer.length/3;
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.faceNormalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawings[ii].draw.shadeAttribs.faceNormalBuffer), gl.STATIC_DRAW);
+      drawings[ii].draw.shadeObjs.faceNormalBuffer.itemSize = 3;
+      drawings[ii].draw.shadeObjs.faceNormalBuffer.numItems = drawings[ii].draw.shadeAttribs.faceNormalBuffer.length/3;
   
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].shadeObjs.vertexIndexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawings[ii].shadeAttribs.vertexIndexBuffer), gl.STATIC_DRAW);
-      drawings[ii].shadeObjs.vertexIndexBuffer.itemSize = 1;
-      drawings[ii].shadeObjs.vertexIndexBuffer.numItems = drawings[ii].shadeAttribs.vertexIndexBuffer.length;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexIndexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawings[ii].draw.shadeAttribs.vertexIndexBuffer), gl.STATIC_DRAW);
+      drawings[ii].draw.shadeObjs.vertexIndexBuffer.itemSize = 1;
+      drawings[ii].draw.shadeObjs.vertexIndexBuffer.numItems = drawings[ii].draw.shadeAttribs.vertexIndexBuffer.length;
     }
     
-    console.log(cube);
+    console.log(drawings);
   }
 
 
@@ -239,26 +308,26 @@ function webGLStart() {
   
     //S
     registerKeyPress(buttonMove.hold, 83, function(){
-      ballSpeed[0]+=speed*Math.sin(thetaY);
-      ballSpeed[2]+=speed*Math.cos(thetaY);
+      drawings[0].velocity[0]+=speed*Math.sin(thetaY);
+      drawings[0].velocity[2]+=speed*Math.cos(thetaY);
     });
 
     //W
     registerKeyPress(buttonMove.hold, 87, function(){
-      ballSpeed[0]-=speed*Math.sin(thetaY);
-      ballSpeed[2]-=speed*Math.cos(thetaY);
+      drawings[0].velocity[0]-=speed*Math.sin(thetaY);
+      drawings[0].velocity[2]-=speed*Math.cos(thetaY);
     });
 
     //A
     registerKeyPress(buttonMove.hold, 65, function(){
-      ballSpeed[0]-=speed*Math.cos(thetaY);
-      ballSpeed[2]+=speed*Math.sin(thetaY);
+      drawings[0].velocity[0]-=speed*Math.cos(thetaY);
+      drawings[0].velocity[2]+=speed*Math.sin(thetaY);
     });
 
     //D
     registerKeyPress(buttonMove.hold, 68, function(){
-      ballSpeed[0]+=speed*Math.cos(thetaY);
-      ballSpeed[2]-=speed*Math.sin(thetaY);
+      drawings[0].velocity[0]+=speed*Math.cos(thetaY);
+      drawings[0].velocity[2]-=speed*Math.sin(thetaY);
     });
   }
 
@@ -268,12 +337,12 @@ function webGLStart() {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
   
-//    gl.enable(gl.CULL_FACE);
-//    gl.cullFace(gl.BACK);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
   }
 
 
   //begin tick cycle
   tick();
 }
-//}end code for drawing to screen
+//}end code for drawing
