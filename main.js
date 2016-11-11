@@ -142,6 +142,7 @@ function tick(){
       for(var j=0;j<drawings.length;j++){
         var hits = drawings[i].touch(drawings[j]);
         if(hits[0] != 0 && hits[0] != 0 && hits[0] != 0){
+          console.log(drawings[j].name);
           hits = normalize(hits);
           for(var k=0;k<3;k++){
             drawings[i].velocity[k] += hits[k]/20;
@@ -192,7 +193,10 @@ function webGLStart() {
       
       cube.shadeAttribs.vertexIndexBuffer = [0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 18, 17, 19, 20, 21, 22, 22, 21, 23];
       cube.shadeAttribs.vertexPositionBuffer = [-0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5];
-  
+      //center at 0,0
+//      for(var i=1; i<cube.shadeAttribs.vertexPositionBuffer.length;i+=3){
+//        cube.shadeAttribs.vertexPositionBuffer[i] -= 0.5;
+//      }
       //cube.shadeAttribs.faceNormalBuffer = [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0];
       cube.shadeAttribs.faceNormalBuffer = generateNormals(cube);
       
@@ -248,10 +252,20 @@ function webGLStart() {
         };
         ball.interactFns["cube"] = function(mine, cube){
           var touchSides = [0,0,0];
+          var touching = true;
           for(var i=0; i<3; i++){
-            if(cube.draw.stretchRegister[0]){
-              
+            if(Math.abs((cube.draw.coords[i] + cube.draw.stretchRegister[i]) - mine.draw.coords[i]) <= mine.draw.stretchRegister[i] ||
+               Math.abs((cube.draw.coords[i] - cube.draw.stretchRegister[i]) - mine.draw.coords[i]) <= mine.draw.stretchRegister[i]){
+              touchSides[i] = -1*(cube.draw.coords[i] - mine.draw.coords[i]);
+            }else{
+              touching = false;
             }
+          }
+          
+          if(touching){
+            return touchSides;
+          }else{
+            return [0, 0, 0];
           }
         };
         var ki = ball.copy();
@@ -267,7 +281,11 @@ function webGLStart() {
   		  k.coords = [-50, -1, -50];
   		  drawings.push(new PhysObj("plane",k));
   	  }
-      drawings.push(new PhysObj("cube", cube.copy().stretch([2,2,2])));
+  	  
+  	  {
+  	    var k = new PhysObj("cube", cube.copy().stretch([2,2,2]));
+        drawings.push(k);
+  	  }
     }
     //  end adding
       
