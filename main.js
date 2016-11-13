@@ -43,6 +43,8 @@ class PhysObj{
 
 class Maze{
   constructor(width, height){
+    this.edges = [];
+    this.drawMap = []
     this.map = [];
     for(var i=0; i<width; i++){
       this.map.push([]);
@@ -98,37 +100,41 @@ class Maze{
     var pCube = new PhysObj("cube", cube.copy().stretch([4,4,4]));
     var out = [];
     for(var i=0; i<this.map.length; i++){
+      this.drawMap.push([]);
       for(var j=0; j<this.map[i].length; j++){
         if(this.map[i][j] == 1){
           var tempC = pCube.copy();
+          var color = 2*(i+j)/(this.map.length+this.map[0].length);
+          tempC.draw = myDrawable.customFunctions.setColor(tempC.draw, [color*2, color/3, color/2, 1]);
           tempC.draw.coords = [4*i, 0, 4*j];
           out.push(tempC);
+          this.drawMap[i].push(tempC);
+        }else{
+          this.drawMap[i].push(undefined);
         }
       }
     }
     
     //edges
-    var cuber = new PhysObj("cube", cube.copy().stretch([4,40,4]));
-    for(var i=0;i<this.map.length; i++){
-      var tempC = cuber.copy();
-      tempC.draw.coords = [4*i, 0, -4];
-      out.push(tempC);
+    var tempC = new PhysObj("cube", cube.copy().stretch([4*this.map.length,40,4]));
+    tempC.draw.coords = [2*this.map.length, 0, -4];
+    out.push(tempC);
+    this.edges.push(tempC);
+    
+    tempC = new PhysObj("cube", cube.copy().stretch([4*this.map.length,40,4]));
+    tempC.draw.coords = [2*this.map.length, 0, 4*this.map[0].length];
+    out.push(tempC);
+    this.edges.push(tempC);
 
-      tempC = cuber.copy();
-      tempC.draw.coords = [4*i, 0, 4*this.map[i].length];
-      out.push(tempC);
-    }
+    tempC = new PhysObj("cube", cube.copy().stretch([4, 40, 4*this.map[0].length]));
+    tempC.draw.coords = [-4, 0, 2*this.map.length];
+    out.push(tempC);
+    this.edges.push(tempC);
 
-    for(var i=0;i<this.map[0].length; i++){
-      var tempC = cuber.copy();
-      tempC.draw.coords = [-4, 0, 4*i];
-      out.push(tempC);
-
-      tempC = cuber.copy();
-      tempC.draw.coords = [4*this.map.length, 0, 4*i];
-      out.push(tempC);
-    }
-
+    tempC = new PhysObj("cube", cube.copy().stretch([4,40,4*this.map[0].length]));
+    tempC.draw.coords = [4*this.map.length, 0, 2*this.map.length];
+    out.push(tempC);
+    this.edges.push(tempC);
 
     return out;
   }
@@ -142,12 +148,14 @@ var thetaZ = 0;
 var move = [1,0];
 var worldShift = [0, 0, 0];
 var ballSpeed = [0, 0, 0];
-var speed = 1/90;
+var speed = 1/40;
 
 //final objects
 var sphere;
 var cube;
 var plane;
+
+var maze;
 
 var myDrawable = DrawableFactory([
     "vertexPositionBuffer", 
@@ -242,16 +250,32 @@ function tick(){
   }
   
   //collision
-  {
-    for(var i=0;i<1;i++){
-      for(var j=0;j<drawings.length;j++){
-        var hits = drawings[i].touch(drawings[j]);
-        if(hits[0] != 0 || hits[1] != 0 || hits[2] != 0){
-          console.log(drawings[j].name);
-          hits = normalize(hits);
-          for(var k=0;k<3;k++){
-            drawings[i].velocity[k] += hits[k]/20;
+  {//collision is modified to minimize checks
+    var coord = [0,0,0];
+    for(var i=0;i<3;i++){
+      coord[i] = Math.floor(drawings[0].draw.coords[i]/4);
+    }
+    
+    for(var i=-1;i<2;i++){
+      for(var j=-1;j<2;j++){
+        if(maze.drawMap[i+coord[0]] !== undefined && maze.drawMap[i+coord[0]][j+coord[2]] !== undefined){
+          var hits = drawings[0].touch(maze.drawMap[i+coord[0]][j+coord[2]]);
+          if(hits[0] !== 0 || hits[1] !== 0 || hits[2] !== 0){
+            hits = normalize(hits);
+            for(var k=0;k<3;k++){
+              drawings[0].velocity[k] += hits[k]/20;
+            }
           }
+        }
+      }
+    }
+    
+    for(var i=0;i<4;i++){
+      var hits = drawings[0].touch(maze.edges[i]);
+      if(hits[0] !== 0 || hits[1] !== 0 || hits[2] !== 0){
+        hits = normalize(hits);
+        for(var k=0;k<3;k++){
+          drawings[0].velocity[k] += hits[k]/20;
         }
       }
     }
@@ -356,17 +380,16 @@ function webGLStart() {
           var maxValue = 0;
           var touching = true;
           for(var i=0; i<3; i++){
-            if(Math.abs((cube.draw.coords[i] + cube.draw.stretchRegister[i]) - mine.draw.coords[i]) <= 2*mine.draw.stretchRegister[i] ||
-               Math.abs((cube.draw.coords[i] - cube.draw.stretchRegister[i]) - mine.draw.coords[i]) <= 2*mine.draw.stretchRegister[i]){
-              
-//              touchSides[i] = -1*(cube.draw.coords[i] - mine.draw.coords[i]);
+            if(Math.abs(cube.draw.coords[i] - mine.draw.coords[i]) < 4*mine.draw.stretchRegister[i] &&
+              (Math.abs((cube.draw.coords[i] + cube.draw.stretchRegister[i]/2) - mine.draw.coords[i]) <= 2*mine.draw.stretchRegister[i] ||
+               Math.abs((cube.draw.coords[i] - cube.draw.stretchRegister[i]/2) - mine.draw.coords[i]) <= 2*mine.draw.stretchRegister[i])){
               
               if(Math.abs((cube.draw.coords[i] - mine.draw.coords[i])) > Math.abs(maxValue)){
                 maxValue = -1*(cube.draw.coords[i] - mine.draw.coords[i]);
                 maxIndex = i;
               }
             }else{
-              touching = false;
+              return [0,0,0];
             }
           }
           
@@ -377,22 +400,18 @@ function webGLStart() {
             return [0, 0, 0];
           }
         };
-        var ki = ball.copy();
-        ki.draw = myDrawable.customFunctions.setColor(sphere.copy(), [1, 0, 0, 1]);
-        ki.draw.coords[0] = 3;
         drawings.push(ball.copy());
-//        drawings.push(ki);
       }
       
   	  {
   		  var k = plane.copy();
   		  k = k.stretch([20, -1, 20]);
-  		  k.coords = [-1, -1, -1];
+  		  k.coords = [-4, -1, -4];
   		  drawings.push(new PhysObj("plane",k));
   	  }
   	  
   	  {
-        var maze = new Maze(30,30);
+        maze = new Maze(30,30);
 
   	    var k = maze.toPhysArray();
         drawings = drawings.concat(k);
