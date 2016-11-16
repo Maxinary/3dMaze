@@ -22,6 +22,7 @@ class PhysObj{
     this.draw = drawableAttr;
     this.velocity = [0,0,0];
     this.mass = mass;
+    this.extraData = {};
   }
   
   touch(otherPhysObj){
@@ -115,6 +116,41 @@ class Maze{
     }
     return out;
   }
+  
+  toSinglePhysObj(){
+    var outArr = this.toPhysArray();
+    
+    var outDraw = myDrawable.new();
+    
+    var totalCount = 0;
+    
+    for(var i=0; i<outArr.length; i++){
+      outDraw.shadeAttribs.faceNormalBuffer.push.apply(outDraw.shadeAttribs.faceNormalBuffer, outArr[i].draw.shadeAttribs.faceNormalBuffer);
+      outDraw.shadeAttribs.vertexColorBuffer.push.apply(outDraw.shadeAttribs.vertexColorBuffer, outArr[i].draw.shadeAttribs.vertexColorBuffer);
+      
+      for(var j=0; j<outArr[i].draw.shadeAttribs.vertexPositionBuffer.length; j+=3){
+        for(var k=0; k<3; k++){
+          outDraw.shadeAttribs.vertexPositionBuffer.push(outArr[i].draw.shadeAttribs.vertexPositionBuffer[j+k]+outArr[i].draw.coords[k]);
+        }
+      }
+      
+      for(var j=0; j<outArr[i].draw.shadeAttribs.vertexIndexBuffer.length; j++){
+        outDraw.shadeAttribs.vertexIndexBuffer.push(outArr[i].draw.shadeAttribs.vertexIndexBuffer[j]+totalCount);
+      }
+      
+      totalCount += 24;
+    }
+    
+    
+    
+    var outPhys = new PhysObj("cubeArr", myDrawable.customFunctions.setColorByVertex(outDraw, function(coord){
+      return [(coord[0]+coord[2])/64/1.3, 0, (coord[0]+coord[2])/64/3, 1];
+    }), 5000);
+    outPhys.extraData.map = this.map;
+    
+    
+    return outPhys;
+  }
 }
 
 //personal movement
@@ -149,6 +185,22 @@ myDrawable.customFunctions.setColor = function(myDrawableO, colorArr){
   }
   return myDrawableO;
 };
+
+myDrawable.customFunctions.setColorByVertex = function(myDrawableO, colorFunc){
+  for(var i=0; i<myDrawableO.shadeAttribs.vertexIndexBuffer.length; i++){
+    var cArr = colorFunc(
+      myDrawableO.shadeAttribs.vertexPositionBuffer.slice(
+        myDrawableO.shadeAttribs.vertexIndexBuffer[i]*3, 
+        myDrawableO.shadeAttribs.vertexIndexBuffer[i]*3+3
+      )
+    );
+    
+    for(var j=0; j<4; j++){
+      myDrawableO.shadeAttribs.vertexColorBuffer[myDrawableO.shadeAttribs.vertexIndexBuffer[i]*4+j] = cArr[j];
+    }
+  }
+  return myDrawableO;
+}
 
 //code for actually drawing and running{
 function drawScene(){
@@ -380,7 +432,7 @@ function webGLStart() {
   	  {
         maze = new Maze(30,30);
 
-  	    var k = maze.toPhysArray();
+  	    var k = maze.toSinglePhysObj();
         drawings = drawings.concat(k);
   	  }
     }
