@@ -161,7 +161,7 @@ var thetaZ = 0;
 var move = [1,0];
 var worldShift = [0, 0, 0];
 var ballSpeed = [0, 0, 0];
-var speed = 1/40;
+var speed = 1/30;
 
 //final objects
 var sphere;
@@ -273,7 +273,7 @@ function tick(){
     for(var i=0;i<drawings.length;i++){
       for(var j=0;j<3;j++){
         drawings[i].draw.coords[j] += drawings[i].velocity[j];
-        drawings[i].velocity[j] *= 0.90;
+        drawings[i].velocity[j] *= 0.85;
       }
     }
   }
@@ -290,9 +290,9 @@ function tick(){
         if(maze.drawMap[i+coord[0]] !== undefined && maze.drawMap[i+coord[0]][j+coord[2]] !== undefined){
           var hits = drawings[0].touch(maze.drawMap[i+coord[0]][j+coord[2]]);
           if(hits[0] !== 0 || hits[1] !== 0 || hits[2] !== 0){
-            hits = normalize(hits);
+            //hits = normalize(hits);
             for(var k=0;k<3;k++){
-              drawings[0].velocity[k] += hits[k]/20;
+              drawings[0].velocity[k] += hits[k]/15;
             }
           }
         }
