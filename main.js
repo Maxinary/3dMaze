@@ -34,7 +34,7 @@ class PhysObj{
   }
   
   copy(){
-    var n = new PhysObj(this.name, this.draw.copy());
+    var n = new PhysObj(this.name, this.draw.copy(), this.mass);
     for(var key in this.interactFns){
       n.interactFns[key] = this.interactFns[key];
     }
@@ -157,6 +157,7 @@ class Maze{
 var thetaX = Math.PI*7/16;
 var thetaY = 0;
 var thetaZ = 0;
+var cameraDistance = 8;
 
 var move = [1,0];
 var worldShift = [0, 0, 0];
@@ -257,16 +258,6 @@ function drawScene(){
 
 function tick(){
   requestAnimationFrame(tick);//register next tick
-
-  //set current rotation
-  {
-    for(var i=0; i<3; i++){
-      worldShift[i] = drawings[0].draw.coords[i];
-    }
-    worldShift[0] +=  8*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
-    worldShift[1] +=  8*Math.cos(thetaX);//zRot math
-    worldShift[2] +=  8*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
-  }
   
   //movement
   {
@@ -292,12 +283,22 @@ function tick(){
           if(hits[0] !== 0 || hits[1] !== 0 || hits[2] !== 0){
             //hits = normalize(hits);
             for(var k=0;k<3;k++){
-              drawings[0].velocity[k] += hits[k]/15;
+              drawings[0].velocity[k] += hits[k]/drawings[0].mass;
             }
           }
         }
       }
     }
+  }
+  
+  //set current rotation
+  {
+    for(var i=0; i<3; i++){
+      worldShift[i] = drawings[0].draw.coords[i];
+    }
+    worldShift[0] +=  cameraDistance*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
+    worldShift[1] +=  cameraDistance*Math.cos(thetaX);//zRot math
+    worldShift[2] +=  cameraDistance*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
   }
   
   //check keys and values from keyRegisterer.js
@@ -385,7 +386,7 @@ function webGLStart() {
     //add some items to the drawables
     {
       {
-        var ball = new PhysObj("ball", sphere.copy());
+        var ball = new PhysObj("ball", sphere.copy(), 3);
         ball.interactFns["ball"] = function(mine, physO){
           if(Math.sqrt(Math.pow(mine.draw.coords[0]-physO.draw.coords[0], 2) + Math.pow(mine.draw.coords[1]-physO.draw.coords[1], 2) + Math.pow(mine.draw.coords[2]-physO.draw.coords[2], 2) ) < ball.draw.stretchRegister[0]+physO.draw.stretchRegister[0]){
             return [mine.draw.coords[0]-physO.draw.coords[0], mine.draw.coords[1]-physO.draw.coords[1], mine.draw.coords[2]-physO.draw.coords[2]];
@@ -404,7 +405,7 @@ function webGLStart() {
                Math.abs((cube.draw.coords[i] - cube.draw.stretchRegister[i]) - mine.draw.coords[i]) <= 2*mine.draw.stretchRegister[i])){
               
               if(Math.abs((cube.draw.coords[i] - mine.draw.coords[i])) > Math.abs(maxValue)){
-                maxValue = -1*(cube.draw.coords[i] - mine.draw.coords[i]);
+                maxValue = (cube.draw.coords[i] - mine.draw.coords[i]);
                 maxIndex = i;
               }
             }else{
@@ -413,7 +414,14 @@ function webGLStart() {
           }
           
           if(touching){
-            touchSides[maxIndex] = maxValue;
+            var opposing = 0;
+            if(maxValue < 0){
+              opposing = 1;
+            }else{
+              opposing = -1;
+            }
+            touchSides[maxIndex] = (opposing + maxValue/(1.5*(cube.draw.stretchRegister[maxIndex]+mine.draw.stretchRegister[maxIndex])));
+            console.log(touchSides[maxIndex]);
             return touchSides;
           }else{
             return [0, 0, 0];
