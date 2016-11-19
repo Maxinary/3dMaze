@@ -164,12 +164,25 @@ var worldShift = [0, 0, 0];
 var ballSpeed = [0, 0, 0];
 var speed = 1/30;
 
+class WorldState{
+  constructor(drawings, keyReg, tickCode){
+    this.drawings = drawings;
+    this.keyReg = keyReg;
+    this.tick = tickCode;
+  }
+}
+
+var gameStates = {};
+var curGameState = "run";
+
 //final objects
 var sphere;
 var cube;
 var plane;
 
 var maze;
+
+var currentGameState;
 
 var myDrawable = DrawableFactory([
     "vertexPositionBuffer", 
@@ -204,108 +217,67 @@ myDrawable.customFunctions.setColorByVertex = function(myDrawableO, colorFunc){
 }
 
 //code for actually drawing and running{
-function drawScene(){
-  //clear screen
-  gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.clearColor(0, 0, 0, 0.3);
-
-  //set up view model
-  mat4.perspective(pMatrix, 45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
-
-  mat4.identity(mvMatrix);
-
-  //intial camera movement
-
-  mat4.translate(mvMatrix, mvMatrix, [0,0,-5]);//got sphere
-
-  mat4.lookAt(mvMatrix, worldShift, drawings[0].draw.coords, vec3.fromValues(0, 1, 0))
-
-
-  //loop through drawings and draw
-  for(var ii=0;ii<drawings.length;ii++){
-    mvPushMatrix();
-	
-	  var rotationMatrix = mat4.create();
-	
-    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[0], [1, 0, 0]);
-    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[1], [0, 1, 0]);
-    mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[2], [0, 0, 1]);
-
-    mat4.translate(mvMatrix,  mvMatrix, drawings[ii].draw.coords);
-
-    //vertices
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexPositionBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, drawings[ii].draw.shadeObjs.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0); 
-
-    //coloring
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexColorBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, drawings[ii].draw.shadeObjs.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    //normals
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.faceNormalBuffer);
-    gl.vertexAttribPointer(shaderProgram.faceNormalAttribute, drawings[ii].draw.shadeObjs.faceNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    //vertex index buffer
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexIndexBuffer);
-
-    setMatrixUniforms(rotationMatrix);
-    gl.drawElements(drawings[ii].draw.drawMod, drawings[ii].draw.shadeObjs.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-    mvPopMatrix();
-  }
-}
 
 function tick(){
   requestAnimationFrame(tick);//register next tick
   
-  //movement
-  {
-    for(var i=0;i<drawings.length;i++){
-      for(var j=0;j<3;j++){
-        drawings[i].draw.coords[j] += drawings[i].velocity[j];
-        drawings[i].velocity[j] *= 0.85;
-      }
-    }
-  }
-  
-  //collision
-  {//collision is modified to minimize checks
-    var coord = [1,0,1];
-    for(var i=0;i<3;i++){
-      coord[i] += Math.floor(drawings[0].draw.coords[i]/4);
-    }
-    
-    for(var i=-1;i<2;i++){
-      for(var j=-1;j<2;j++){
-        if(maze.drawMap[i+coord[0]] !== undefined && maze.drawMap[i+coord[0]][j+coord[2]] !== undefined){
-          var hits = drawings[0].touch(maze.drawMap[i+coord[0]][j+coord[2]]);
-          if(hits[0] !== 0 || hits[1] !== 0 || hits[2] !== 0){
-            //hits = normalize(hits);
-            for(var k=0;k<3;k++){
-              drawings[0].velocity[k] += hits[k]/drawings[0].mass;
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  //set current rotation
-  {
-    for(var i=0; i<3; i++){
-      worldShift[i] = drawings[0].draw.coords[i];
-    }
-    worldShift[0] +=  cameraDistance*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
-    worldShift[1] +=  cameraDistance*Math.cos(thetaX);//zRot math
-    worldShift[2] +=  cameraDistance*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
-  }
+  gameStates[curGameState].tick();
   
   //check keys and values from keyRegisterer.js
-  keyTick();
+  gameStates[curGameState].keyReg.keyTick();
   
   //draw
-  drawScene();
+  {
+    //clear screen
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clearColor(0, 0, 0, 0.3);
+  
+    //set up view model
+    mat4.perspective(pMatrix, 45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+  
+    mat4.identity(mvMatrix);
+  
+    //intial camera movement
+  
+    mat4.translate(mvMatrix, mvMatrix, [0,0,-5]);//got sphere
+  
+    mat4.lookAt(mvMatrix, worldShift, drawings[0].draw.coords, vec3.fromValues(0, 1, 0))
+  
+  
+    //loop through drawings and draw
+    for(var ii=0;ii<drawings.length;ii++){
+      mvPushMatrix();
+  	
+  	  var rotationMatrix = mat4.create();
+  	
+      mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[0], [1, 0, 0]);
+      mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[1], [0, 1, 0]);
+      mat4.rotate(rotationMatrix, rotationMatrix, drawings[ii].draw.rotation[2], [0, 0, 1]);
+  
+      mat4.translate(mvMatrix,  mvMatrix, drawings[ii].draw.coords);
+  
+      //vertices
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexPositionBuffer);
+      gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, drawings[ii].draw.shadeObjs.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0); 
+  
+      //coloring
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexColorBuffer);
+      gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, drawings[ii].draw.shadeObjs.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  
+      //normals
+      gl.bindBuffer(gl.ARRAY_BUFFER, drawings[ii].draw.shadeObjs.faceNormalBuffer);
+      gl.vertexAttribPointer(shaderProgram.faceNormalAttribute, drawings[ii].draw.shadeObjs.faceNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  
+      //vertex index buffer
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, drawings[ii].draw.shadeObjs.vertexIndexBuffer);
+  
+      setMatrixUniforms(rotationMatrix);
+      gl.drawElements(drawings[ii].draw.drawMod, drawings[ii].draw.shadeObjs.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+  
+      mvPopMatrix();
+    }
+  }
 }
 
 function webGLStart() {
@@ -444,7 +416,7 @@ function webGLStart() {
         drawings = drawings.concat(k);
   	  }
     }
-    //  end adding
+    //end adding
       
     // go through drawings and generate all their buffers
     for(var ii=0; ii<drawings.length; ii++){
@@ -473,39 +445,91 @@ function webGLStart() {
   }
 
 
-  //register key presses with keyregisterer.js
+  //initialize the playtime game state
   {
-    //rotate
-    registerKeyPress(buttonMove.hold, 37, function(){thetaY-=0.02;});
-    registerKeyPress(buttonMove.hold, 38, function(){thetaX-=0.02;});
-    registerKeyPress(buttonMove.hold, 39, function(){thetaY+=0.02;});
-    registerKeyPress(buttonMove.hold, 40, function(){thetaX+=0.02;});
+    var gameKeys = new KeyRegister();
+    {
+      //rotate
+      gameKeys.registerKeyPress(buttonMove.hold, 37, function(){thetaY-=0.02;});
+      gameKeys.registerKeyPress(buttonMove.hold, 38, function(){thetaX-=0.02;});
+      gameKeys.registerKeyPress(buttonMove.hold, 39, function(){thetaY+=0.02;});
+      gameKeys.registerKeyPress(buttonMove.hold, 40, function(){thetaX+=0.02;});
+    
+      //S
+      gameKeys.registerKeyPress(buttonMove.hold, 83, function(){
+        drawings[0].velocity[0]+=speed*Math.sin(thetaY);
+        drawings[0].velocity[2]+=speed*Math.cos(thetaY);
+      });
   
-    //S
-    registerKeyPress(buttonMove.hold, 83, function(){
-      drawings[0].velocity[0]+=speed*Math.sin(thetaY);
-      drawings[0].velocity[2]+=speed*Math.cos(thetaY);
-    });
-
-    //W
-    registerKeyPress(buttonMove.hold, 87, function(){
-      drawings[0].velocity[0]-=speed*Math.sin(thetaY);
-      drawings[0].velocity[2]-=speed*Math.cos(thetaY);
-    });
-
-    //A
-    registerKeyPress(buttonMove.hold, 65, function(){
-      drawings[0].velocity[0]-=speed*Math.cos(thetaY);
-      drawings[0].velocity[2]+=speed*Math.sin(thetaY);
-    });
-
-    //D
-    registerKeyPress(buttonMove.hold, 68, function(){
-      drawings[0].velocity[0]+=speed*Math.cos(thetaY);
-      drawings[0].velocity[2]-=speed*Math.sin(thetaY);
+      //W
+      gameKeys.registerKeyPress(buttonMove.hold, 87, function(){
+        drawings[0].velocity[0]-=speed*Math.sin(thetaY);
+        drawings[0].velocity[2]-=speed*Math.cos(thetaY);
+      });
+  
+      //A
+      gameKeys.registerKeyPress(buttonMove.hold, 65, function(){
+        drawings[0].velocity[0]-=speed*Math.cos(thetaY);
+        drawings[0].velocity[2]+=speed*Math.sin(thetaY);
+      });
+  
+      //D
+      gameKeys.registerKeyPress(buttonMove.hold, 68, function(){
+        drawings[0].velocity[0]+=speed*Math.cos(thetaY);
+        drawings[0].velocity[2]-=speed*Math.sin(thetaY);
+      });
+    }
+    
+    gameKeys.engage();
+    
+    gameStates["run"] = new WorldState(drawings, gameKeys, function(){//physics
+      {
+        //movement
+        {
+          for(var i=0;i<drawings.length;i++){
+            for(var j=0;j<3;j++){
+              this.drawings[i].draw.coords[j] += drawings[i].velocity[j];
+              this.drawings[i].velocity[j] *= 0.85;
+            }
+          }
+        }
+        
+        //collision
+        //NOTE: collision is modified to minimize checks
+        {
+          //get position
+          var coord = [1,0,1];
+          for(var i=0;i<3;i++){
+            coord[i] += Math.floor(this.drawings[0].draw.coords[i]/4);
+          }
+          
+          //hits maze
+          for(var i=-1;i<2;i++){
+            for(var j=-1;j<2;j++){
+              if(maze.drawMap[i+coord[0]] !== undefined && maze.drawMap[i+coord[0]][j+coord[2]] !== undefined){
+                var hits = this.drawings[0].touch(maze.drawMap[i+coord[0]][j+coord[2]]);
+                if(hits[0] !== 0 || hits[1] !== 0 || hits[2] !== 0){
+                  for(var k=0;k<3;k++){
+                    this.drawings[0].velocity[k] += hits[k]/this.drawings[0].mass;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      //set current rotation
+      {
+        for(var i=0; i<3; i++){
+          worldShift[i] = drawings[0].draw.coords[i];
+        }
+        worldShift[0] +=  cameraDistance*Math.sin(thetaX)*Math.sin(thetaY);//yRot math
+        worldShift[1] +=  cameraDistance*Math.cos(thetaX);//zRot math
+        worldShift[2] +=  cameraDistance*Math.sin(thetaX)*Math.cos(thetaY);//xRot math
+      }
     });
   }
-
 
   //gl variables
   {
