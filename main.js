@@ -154,10 +154,10 @@ class Maze{
 }
 
 //personal movement
-var thetaX = Math.PI*7/16;
-var thetaY = 0;
+var thetaX = 1;
+var thetaY = -Math.PI*3/4;
 var thetaZ = 0;
-var cameraDistance = 8;
+var cameraDistance = 12;
 
 var move = [1,0];
 var worldShift = [0, 0, 0];
@@ -393,7 +393,6 @@ function webGLStart() {
               opposing = -1;
             }
             touchSides[maxIndex] = (opposing + maxValue/(1.5*(cube.draw.stretchRegister[maxIndex]+mine.draw.stretchRegister[maxIndex])));
-            console.log(touchSides[maxIndex]);
             return touchSides;
           }else{
             return [0, 0, 0];
