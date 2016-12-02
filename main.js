@@ -154,10 +154,10 @@ class Maze{
 }
 
 //personal movement
-var thetaX = Math.PI*7/16;
-var thetaY = 0;
+var thetaX = -3/4*Math.PI;
+var thetaY = -Math.PI/4;
 var thetaZ = 0;
-var cameraDistance = 8;
+var cameraDistance = 12;
 
 var move = [1,0];
 var worldShift = [0, 0, 0];
